@@ -42,6 +42,14 @@ def parse_system_hive(system_hive: RegistryHive) -> dict:
     bios_vendor = system_hive.get_key(f"SYSTEM\HardwareConfig\{current_hardware_config}").get_value('BIOSVendor')
     bios_release_date = system_hive.get_key(f"SYSTEM\HardwareConfig\{current_hardware_config}").get_value('BIOSReleaseDate')
     system_hive_dict['bios_version'] = f'{bios_vendor} {bios_version}, {bios_release_date}'
+    system_hive_dict['domain'] = system_hive.get_key(f'{current_control_set}\Services\Tcpip\Parameters').get_value('Domain')
+    system_hive_dict['domain'] = system_hive_dict['domain'] if system_hive_dict['domain'] != 0 else 'WORKGROUP'
+    system_hive_dict['page_file_locations'] = system_hive.get_key(f'{current_control_set}\Control\Session Manager\Memory Management').get_value('PagingFiles')[::3]
+    # TODO This could probably be improved if I could find the system drive letter in the registry
+    for idx, page_file_location in enumerate(system_hive_dict['page_file_locations']):
+        if page_file_location[0] == '?':
+            system_hive_dict['page_file_locations'][idx] = page_file_location.replace('?', system_hive.get_key(f'{current_control_set}\Control\Session Manager\Memory Management').get_value('ExistingPageFiles')[0][4])
+    system_hive_dict['boot_device'] = system_hive.get_key('SYSTEM\Setup').get_value('SystemPartition')
 
 
 def main():
@@ -96,7 +104,7 @@ Processor(s):              1 Processor(s) Installed.
 # BIOS Version:              HP N75 Ver. 01.29, 4-6-2018
 Windows Directory:         C:\WINDOWS
 System Directory:          C:\WINDOWS\system32
-Boot Device:               \Device\HarddiskVolume7
+# Boot Device:               \Device\HarddiskVolume7
 System Locale:             en-us;English (United States)
 Input Locale:              en-us;English (United States)
 Time Zone:                 (UTC+01:00) Amsterdam, Berlin, Bern, Rome, Stockholm, Vienna
@@ -105,8 +113,8 @@ Available Physical Memory: 5.160 MB
 Virtual Memory: Max Size:  18.697 MB
 Virtual Memory: Available: 4.793 MB
 Virtual Memory: In Use:    13.904 MB
-Page File Location(s):     C:\pagefile.sys
-Domain:                    WORKGROUP
+# Page File Location(s):     C:\pagefile.sys
+# Domain:                    WORKGROUP
 Logon Server:              \\LAPTOP
 Hotfix(s):                 5 Hotfix(s) Installed.
                            [01]: KB4100347
