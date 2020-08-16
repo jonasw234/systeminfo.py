@@ -19,13 +19,13 @@ def determine_current_control_set(system_hive: RegistryHive) -> str:
     """
     Determine the current control set.
 
-    Input
-    -----
-    system_hive: RegistryHive
+    Parameters
+    ----------
+    system_hive : RegistryHive
         The system hive to parse
 
-    Return
-    ------
+    Returns
+    -------
     str
         The path to the current control set
     """
@@ -43,13 +43,13 @@ def parse_system_hive(system_hive: RegistryHive) -> dict:
     """
     Parse system hive and return needed information.
 
-    Input
-    -----
-    system_hive: RegistryHive
+    Parameters
+    ----------
+    system_hive : RegistryHive
         The system hive to parse
 
-    Return
-    ------
+    Returns
+    -------
     dict
         Dictionary with the information for systeminfo
     """
@@ -131,13 +131,13 @@ def parse_software_hive(software_hive: RegistryHive) -> dict:
     """
     Parse software hive and return needed information.
 
-    Input
-    -----
-    software_hive: RegistryHive
+    Parameters
+    ----------
+    software_hive : RegistryHive
         The software hive to parse
 
-    Return
-    ------
+    Returns
+    -------
     dict
         Dictionary with the information for systeminfo
     """
@@ -174,15 +174,15 @@ def parse_timezone_information(system_hive: RegistryHive, software_hive: Registr
     """
     Parse system and software hives and return needed information.
 
-    Input
-    -----
-    system_hive: RegistryHive
+    Parameters
+    ----------
+    system_hive : RegistryHive
         The system hive to parse
-    software_hive: RegistryHive
+    software_hive : RegistryHive
         The software hive to parse
 
-    Return
-    ------
+    Returns
+    -------
     dict
         Dictionary with the information for systeminfo
     """
@@ -196,6 +196,25 @@ def parse_timezone_information(system_hive: RegistryHive, software_hive: Registr
     # Return results
     return timezone_information
 
+
+def parse_default_hive(default_hive: RegistryHive) -> dict:
+    """
+    Parse default hive and return needed information.
+
+    Parameters
+    ----------
+    default_hive : RegistryHive
+        The default hive to parse
+
+    Returns
+    -------
+    dict
+        Dictionary with the information for systeminfo
+    """
+    default_hive_dict = {'system_locale': ';'.join([default_hive.get_key(".DEFAULT\Control Panel\International").get_value("LocaleName"), default_hive.get_key(".DEFAULT\Control Panel\International").get_value("sCountry")])}
+
+    # Return results
+    return default_hive_dict
 
 def main():
     """Find registry hives and invoke parsers."""
@@ -225,6 +244,14 @@ def main():
         else:
             print(f'Error: Neither {os.path.join(args["--mountpoint"], "SOFTWARE")} nor {os.path.join(args["--mountpoint"], "Windows", "config", "SOFTWARE")} seem to be correct.  Please set the mountpoint directly to the path for the registry hives.')
             sys.exit(1)
+        # Default hive
+        default_hive = None
+        if os.path.isfile(os.path.join(args['--mountpoint'], 'DEFAULT')):
+            default_hive = RegistryHive(os.path.join(args['--mountpoint'], 'DEFAULT'))
+        elif os.path.isfile(os.path.join(args['--mountpoint'], 'Windows', 'config', 'DEFAULT')):
+            default_hive = RegistryHive(os.path.join(args['--mountpoint'], 'Windows', 'config', 'DEFAULT'))
+        else:
+            print(f'Warning: Neither {os.path.join(args["--mountpoint"], "DEFAULT")} nor {os.path.join(args["--mountpoint"], "Windows", "config", "DEFAULT")} seem to be correct.  System locale will not be correct.')
     except ConstError:
         print('Invalid registry hives found.')
         sys.exit(1)
@@ -233,6 +260,8 @@ def main():
     systeminfo = parse_system_hive(system_hive)
     systeminfo.update(parse_software_hive(software_hive))
     systeminfo.update(parse_timezone_information(system_hive, software_hive))
+    if default_hive:
+        systeminfo.update(parse_default_hive(default_hive))
 
     # Prepare systeminfo-like output
     output = f"""Host Name:                 {systeminfo['hostname'].upper()}
@@ -255,7 +284,7 @@ BIOS Version:              {systeminfo['bios_version']}
 Windows Directory:         {systeminfo['windows_directory']}
 System Directory:          {systeminfo['system_directory']}
 Boot Device:               {systeminfo['boot_device']}
-System Locale:             en-us;English (United States) *
+System Locale:             {systeminfo.get('system_locale', 'UNKNOWN')}
 Input Locale:              en-us;English (United States) *
 Time Zone:                 {systeminfo['timezone_desc']}
 Total Physical Memory:     0 MB
