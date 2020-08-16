@@ -150,7 +150,7 @@ def main():
         sys.exit(1)
     systeminfo = parse_system_hive(system_hive)
     systeminfo.update(parse_software_hive(software_hive))
-    output = f"""Host Name:                 {systeminfo['hostname']}
+    output = f"""Host Name:                 {systeminfo['hostname'].upper()}
 OS Name:                   {systeminfo['os_name']}
 OS Version:                10.0.17134 N/A Build 17134 *
 OS Manufacturer:           Microsoft Corporation *
