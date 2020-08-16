@@ -147,9 +147,12 @@ def main():
     if not os.path.isdir(args['--mountpoint']):
         print(f'Error: {args["--mountpoint"]} is not a directory.')
         sys.exit(1)
+
+    # Read registry hives
     software_hive = None
     system_hive = None
     try:
+        # System hive
         if os.path.isfile(os.path.join(args['--mountpoint'], 'SYSTEM')):
             system_hive = RegistryHive(os.path.join(args['--mountpoint'], 'SYSTEM'))
         elif os.path.isfile(os.path.join(args['--mountpoint'], 'Windows', 'config', 'SYSTEM')):
@@ -157,6 +160,7 @@ def main():
         else:
             print(f'Error: Neither {os.path.join(args["--mountpoint"], "SYSTEM")} nor {os.path.join(args["--mountpoint"], "Windows", "config", "SYSTEM")} seem to be correct.  Please set the mountpoint directly to the path for the registry hives.')
             sys.exit(1)
+        # Software hive
         if os.path.isfile(os.path.join(args['--mountpoint'], 'SOFTWARE')):
             software_hive = RegistryHive(os.path.join(args['--mountpoint'], 'SOFTWARE'))
         elif os.path.isfile(os.path.join(args['--mountpoint'], 'Windows', 'config', 'SOFTWARE')):
@@ -167,8 +171,12 @@ def main():
     except ConstError:
         print('Invalid registry hives found.')
         sys.exit(1)
+
+    # Call parsing methods
     systeminfo = parse_system_hive(system_hive)
     systeminfo.update(parse_software_hive(software_hive))
+
+    # Prepare systeminfo-like output
     output = f"""Host Name:                 {systeminfo['hostname'].upper()}
 OS Name:                   {systeminfo['os_name']}
 OS Version:                {systeminfo['os_version']}
@@ -203,7 +211,7 @@ Page File Location(s):     """
         output += f'{padding}{page_file_location}\n'
         padding = '                           '
     output += f"""Domain:                    {systeminfo['domain']}
-Logon Server:              \\LAPTOP *
+Logon Server:              \\\\UNKNOWN
 Hotfix(s):                 {len(systeminfo['hotfix'])} Hotfix(s) Installed.
 """
     for idx, hotfix in enumerate(systeminfo['hotfix'], start=1):
