@@ -78,6 +78,9 @@ def parse_system_hive(system_hive: RegistryHive) -> dict:
         if page_file_location[0] == '?':
             system_hive_dict['page_file_locations'][idx] = page_file_location.replace('?', system_hive.get_key(f'{current_control_set}\Control\Session Manager\Memory Management').get_value('ExistingPageFiles')[0][4])
 
+    # Page file max size
+    system_hive_dict['page_file_max_sizes'] = system_hive.get_key(f'{current_control_set}\Control\Session Manager\Memory Management').get_value('PagingFiles')[2::3]
+
     # Boot device
     system_hive_dict['boot_device'] = system_hive.get_key('SYSTEM\Setup').get_value('SystemPartition')
 
@@ -116,7 +119,7 @@ def parse_system_hive(system_hive: RegistryHive) -> dict:
     system_hive_dict['processors'] = system_hive.get_key(f'{current_control_set}\Control\Session Manager\Environment').get_value('PROCESSOR_IDENTIFIER')  # This is technically not correct, because the real value is in the volatile HKLM\HARDWARE\DESCRIPTION\System\CentralProcessor subkeys
 
     # Windows/System directory
-    lsa_library = system_hive.get_key(f'{current_control_set}\Services\Lsa\Performance').get_value('Library')
+    lsa_library = system_hive.get_key(f'{current_control_set}\Services\Lsa\Performance').get_value('Library')  # It’s a bit of a hack, but I can’t find the real key to read
     system_hive_dict['windows_directory'] = '\\'.join(lsa_library.split('\\')[:2])
     system_hive_dict['system_directory'] = '\\'.join(lsa_library.split('\\')[:3])
 
@@ -255,11 +258,11 @@ Boot Device:               {systeminfo['boot_device']}
 System Locale:             en-us;English (United States) *
 Input Locale:              en-us;English (United States) *
 Time Zone:                 {systeminfo['timezone_desc']}
-Total Physical Memory:     16.265 MB *
-Available Physical Memory: 5.160 MB *
-Virtual Memory: Max Size:  18.697 MB *
-Virtual Memory: Available: 4.793 MB *
-Virtual Memory: In Use:    13.904 MB *
+Total Physical Memory:     0 MB
+Available Physical Memory: 0 MB
+virtual Memory: Max Size:  {sum([int(size) for size in systeminfo['page_file_max_sizes']]):,}{' + x' if any([size for size in systeminfo['page_file_max_sizes'] if size == '0']) or not systeminfo['page_file_max_sizes'] else ''} MB
+Vrtual Memory: Available:  0 MB
+Virtual Memory: In Use:    0 MB
 Page File Location(s):     """
     padding = ''
     for page_file_location in systeminfo['page_file_locations']:

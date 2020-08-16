@@ -24,3 +24,5 @@ Where applicable I have implemented workarounds to get similar information, but 
 l
 - Windows/System directory: I could not find where the data is originally read from, so I opted to use HKLM\SYSTEM\ControlSet001\Services\Lsa\Performance\Library as a path that should exist on all Windows versions and parsed the data from that
 l
+- NICs: I couldn’t find the IPv6 addresses in the registry, so only IPv4 will be printed
+- Virtual Memory: Max Size: Automatic page file size is determined at runtime, so I decided to sum the fixed max sizes and add `+ x` if there are also automatically determined sizes
