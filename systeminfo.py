@@ -105,7 +105,8 @@ def parse_system_hive(system_hive: RegistryHive) -> dict:
                 'mac': network_adapters[interface.name.upper()][1],
                 'dhcp_activated': interface.get_value('EnableDHCP') == 1,
                 'dhcp_server': interface.get_value('DhcpServer'),
-                'ip_addresses': [interface.get_value('DhcpIPAddress')] if interface.get_value('DhcpIPAddress') else interface.get_value('IPAddress')
+                'ip_addresses': [interface.get_value('DhcpIPAddress')] if interface.get_value('DhcpIPAddress') else interface.get_value('IPAddress'),
+                'connection_name': system_hive.get_key(''.join([current_control_set, '\\Control\\Network\\{4D36E972-E325-11CE-BFC1-08002BE10318}\\', interface.name.upper(), '\\Connection'])).get_value('Name')
         }
         if not interfaces[interface.name]['ip_addresses']:
             del interfaces[interface.name]
@@ -274,7 +275,7 @@ Hotfix(s):                 {len(systeminfo['hotfix'])} Hotfix(s) Installed.
     for idx, network_card in enumerate(systeminfo['network_cards'].values(), start=1):
         output += f"""
                            [{str(idx).zfill(2)}]: {network_card['desc']}
-                                 Connection Name: UNKNOWN *
+                                 Connection Name: {network_card['connection_name']}
                                  DHCP Enabled:    {'Yes' if network_card['dhcp_activated'] else 'No'}
                                  IP address(es)"""
         for idx2, ip_address in enumerate(network_card['ip_addresses'], start=1):
