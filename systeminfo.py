@@ -54,6 +54,7 @@ def parse_system_hive(system_hive: RegistryHive) -> dict:
     system_hive_dict['manufacturer'] = system_hive.get_key(f'SYSTEM\HardwareConfig\{current_hardware_config}').get_value('SystemManufacturer')
     system_hive_dict['model'] = system_hive.get_key(f'SYSTEM\HardwareConfig\{current_hardware_config}').get_value('SystemProductName')
     system_hive_dict['type'] = system_hive.get_key(f'{current_control_set}\Enum\ROOT\ACPI_HAL\\0000').get_value('DeviceDesc').split(';')[1].replace('ACPI ', '')
+    return system_hive_dict
 
 
 def parse_software_hive(software_hive: RegistryHive) -> dict:
@@ -75,9 +76,9 @@ def parse_software_hive(software_hive: RegistryHive) -> dict:
     software_hive_dict['os_build_type'] = software_hive.get_key('Software\Microsoft\Windows NT\CurrentVersion').get_value('CurrentType')
     software_hive_dict['product_id'] = software_hive.get_key('Software\Microsoft\Windows NT\CurrentVersion').get_value('ProductId')
     software_hive_dict['install_date'] = software_hive.get_key('Software\Microsoft\Windows NT\CurrentVersion').get_value('InstallDate')  # UTC, Needs timezone offset
-    software_hive_dict['boot_time'] = '0-0-0000, 00:00:00'
     software_hive_dict['hotfix'] = set(hotfix.get_value('InstallName').split('_for_')[1].split('~')[0] for hotfix in software_hive.get_key('Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages').iter_subkeys() if '_for_KB' in hotfix.get_value('InstallName') and hotfix.get_value('CurrentState') == 112)  # 112 is successfully installed
     software_hive_dict['hotfix'].update(set(hotfix.get_value('InstallLocation').split('-')[1] for hotfix in software_hive.get_key('Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages').iter_subkeys() if 'RollupFix' in hotfix.get_value('InstallName') and hotfix.get_value('CurrentState') == 112))  # 112 is successfully installed
+    return software_hive_dict
 
 
 def main():
@@ -107,32 +108,28 @@ def main():
     except ConstError:
         print('Invalid registry hives found.')
         sys.exit(1)
-    system_hive_dict = parse_system_hive(system_hive)
-
-
-if __name__ == '__main__':
-    main()
-"""
-# Host Name:                 LAPTOP
-# OS Name:                   Microsoft Windows 10 Education
+    systeminfo = parse_system_hive(system_hive)
+    systeminfo.update(parse_software_hive(software_hive))
+    output = f"""Host Name:                 {systeminfo['hostname']}
+OS Name:                   {systeminfo['os_name']}
 OS Version:                10.0.17134 N/A Build 17134
 OS Manufacturer:           Microsoft Corporation
 OS Configuration:          Standalone Workstation
-# OS Build Type:             Multiprocessor Free
-# Registered Owner:          Windows User
+OS Build Type:             {systeminfo['os_build_type']}
+Registered Owner:          {systeminfo['registered_owner']}
 Registered Organization:
-# Product ID:                00328-00251-17473-AA323
-# Original Install Date:     30-4-2018, 22:22:37
-# System Boot Time:          6-9-2018, 08:20:07
-# System Manufacturer:       HP
-# System Model:              HP EliteBook 840 G3
-# System Type:               x64-based PC
+Product ID:                {systeminfo['product_id']}
+Original Install Date:     {systeminfo['install_date']}  # TODO Add timezone offset and convert string
+System Boot Time:          0-0-0000, 00:00:00
+System Manufacturer:       {systeminfo['manufacturer']}
+System Model:              {systeminfo['model']}
+System Type:               {systeminfo['type']}
 Processor(s):              1 Processor(s) Installed.
                            [01]: Intel64 Family 6 Model 78 Stepping 3 GenuineIntel ~2396 Mhz
-# BIOS Version:              HP N75 Ver. 01.29, 4-6-2018
+BIOS Version:              {systeminfo['bios_version']}
 Windows Directory:         C:\WINDOWS
 System Directory:          C:\WINDOWS\system32
-# Boot Device:               \Device\HarddiskVolume7
+Boot Device:               {systeminfo['boot_device']}
 System Locale:             en-us;English (United States)
 Input Locale:              en-us;English (United States)
 Time Zone:                 (UTC+01:00) Amsterdam, Berlin, Bern, Rome, Stockholm, Vienna
@@ -141,16 +138,18 @@ Available Physical Memory: 5.160 MB
 Virtual Memory: Max Size:  18.697 MB
 Virtual Memory: Available: 4.793 MB
 Virtual Memory: In Use:    13.904 MB
-# Page File Location(s):     C:\pagefile.sys
-# Domain:                    WORKGROUP
+Page File Location(s):     """
+    padding = ''
+    for page_file_location in systeminfo['page_file_locations']:
+        output += f'{padding}{page_file_location}\n'
+        padding = '                           '
+    output += f"""Domain:                    {systeminfo['domain']}
 Logon Server:              \\LAPTOP
-# Hotfix(s):                 5 Hotfix(s) Installed.
-#                            [01]: KB4100347
-#                            [02]: KB4338832
-#                            [03]: KB4343669
-#                            [04]: KB4343902
-#                            [05]: KB4343909
-Network Card(s):           6 NIC(s) Installed.
+Hotfix(s):                 {len(systeminfo['hotfix'])} Hotfix(s) Installed.
+"""
+    for idx, hotfix in enumerate(systeminfo['hotfix'], start=1):
+        output += f'                           [{str(idx).zfill(2)}]: {hotfix}\n'
+    output += """Network Card(s):           6 NIC(s) Installed.
                            [01]: TAP-Windows Adapter V9
                                  Connection Name: Ethernet 2
                                  Status:          Media disconnected
@@ -184,3 +183,8 @@ Hyper-V Requirements:      VM Monitor Mode Extensions: Yes
                            Second Level Address Translation: Yes
                            Data Execution Prevention Available: Yes
 """
+    print(output)
+
+
+if __name__ == '__main__':
+    main()
