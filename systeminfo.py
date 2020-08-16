@@ -7,12 +7,36 @@ Usage: systeminfo.py -p MOUNTPOINT
 Options:
     -p MOUNTPOINT --mountpoint=MOUNTPOINT  Search for the needed registry hives (SYSTEM and SOFTWARE) underneath this path
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import sys
 
 from docopt import docopt
 from regipy.registry import RegistryHive
+
+
+def determine_current_control_set(system_hive: RegistryHive) -> str:
+    """
+    Determine the current control set.
+
+    Input
+    -----
+    system_hive: RegistryHive
+        The system hive to parse
+
+    Return
+    ------
+    str
+        The path to the current control set
+    """
+    current_control_set = system_hive.get_key('\\Select').get_value('Current')
+    for control_set in system_hive.CONTROL_SETS:
+        if int(control_set[-3:]) == current_control_set:
+            current_control_set = control_set
+            break
+    else:
+        raise ValueError('Error determining current control set.')
+    return current_control_set
 
 
 def parse_system_hive(system_hive: RegistryHive) -> dict:
@@ -30,13 +54,7 @@ def parse_system_hive(system_hive: RegistryHive) -> dict:
         Dictionary with the information for systeminfo
     """
     # Determine current control set
-    current_control_set = system_hive.get_key('\\Select').get_value('Current')
-    for control_set in system_hive.CONTROL_SETS:
-        if int(control_set[-3:]) == current_control_set:
-            current_control_set = control_set
-            break
-    else:
-        raise ValueError('Error determining current control set.')
+    current_control_set = determine_current_control_set(system_hive)
     # Determine current hardware config
     current_hardware_config = system_hive.get_key('SYSTEM\HardwareConfig').get_value('LastConfig')
 
@@ -140,6 +158,33 @@ def parse_software_hive(software_hive: RegistryHive) -> dict:
     return software_hive_dict
 
 
+def parse_timezone_information(system_hive: RegistryHive, software_hive: RegistryHive) -> dict:
+    """
+    Parse system and software hives and return needed information.
+
+    Input
+    -----
+    system_hive: RegistryHive
+        The system hive to parse
+    software_hive: RegistryHive
+        The software hive to parse
+
+    Return
+    ------
+    dict
+        Dictionary with the information for systeminfo
+    """
+    # Determine current control set
+    current_control_set = determine_current_control_set(system_hive)
+    # Timezone information
+    timezone_key_name = system_hive.get_key(f'{current_control_set}\Control\TimeZoneInformation').get_value('TimeZoneKeyName')
+    timezone_information = {'timezone_desc': software_hive.get_key(f'Software\Microsoft\Windows NT\CurrentVersion\Time Zones\{timezone_key_name}').get_value('Display')}
+    timezone_information['timezone_offset'] = timezone_information['timezone_desc'].split('+')[1].split(')')[0]
+
+    # Return results
+    return timezone_information
+
+
 def main():
     """Find registry hives and invoke parsers."""
     # Parse command line arguments
@@ -175,6 +220,7 @@ def main():
     # Call parsing methods
     systeminfo = parse_system_hive(system_hive)
     systeminfo.update(parse_software_hive(software_hive))
+    systeminfo.update(parse_timezone_information(system_hive, software_hive))
 
     # Prepare systeminfo-like output
     output = f"""Host Name:                 {systeminfo['hostname'].upper()}
@@ -186,7 +232,7 @@ OS Build Type:             {systeminfo['os_build_type']}
 Registered Owner:          {systeminfo['registered_owner']}
 Registered Organization:   {systeminfo['registered_organization'] if systeminfo['registered_organization'] else ''}
 Product ID:                {systeminfo['product_id']}
-Original Install Date:     {datetime.fromtimestamp(systeminfo['install_date']).strftime('%d-%m-%Y, %H:%M:%S')}  # TODO Add timezone offset
+Original Install Date:     {(datetime.fromtimestamp(systeminfo['install_date']) + timedelta(hours=int(systeminfo['timezone_offset'].split(':')[0]), minutes=int(systeminfo['timezone_offset'].split(':')[1]))).strftime('%d-%m-%Y, %H:%M:%S')}
 System Boot Time:          0-0-0000, 00:00:00
 System Manufacturer:       {systeminfo['manufacturer']}
 System Model:              {systeminfo['model']}
@@ -199,7 +245,7 @@ System Directory:          C:\WINDOWS\system32 *
 Boot Device:               {systeminfo['boot_device']}
 System Locale:             en-us;English (United States) *
 Input Locale:              en-us;English (United States) *
-Time Zone:                 (UTC+01:00) Amsterdam, Berlin, Bern, Rome, Stockholm, Vienna *
+Time Zone:                 {systeminfo['timezone_desc']}
 Total Physical Memory:     16.265 MB *
 Available Physical Memory: 5.160 MB *
 Virtual Memory: Max Size:  18.697 MB *
