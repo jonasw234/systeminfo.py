@@ -111,13 +111,32 @@ def parse_software_hive(software_hive: RegistryHive) -> dict:
     dict
         Dictionary with the information for systeminfo
     """
+    # Registered owner
     software_hive_dict = {'registered_owner': software_hive.get_key('Software\Microsoft\Windows NT\CurrentVersion').get_value('RegisteredOwner')}
+
+    # OS name
     software_hive_dict['os_name'] = ' '.join(['Microsoft', software_hive.get_key('Software\Microsoft\Windows NT\CurrentVersion').get_value('ProductName')])
+
+    # OS build type
     software_hive_dict['os_build_type'] = software_hive.get_key('Software\Microsoft\Windows NT\CurrentVersion').get_value('CurrentType')
+
+    # Product ID
     software_hive_dict['product_id'] = software_hive.get_key('Software\Microsoft\Windows NT\CurrentVersion').get_value('ProductId')
+
+    # Install date
     software_hive_dict['install_date'] = software_hive.get_key('Software\Microsoft\Windows NT\CurrentVersion').get_value('InstallDate')  # UTC, Needs timezone offset
+
+    # Hotfixes
     software_hive_dict['hotfix'] = set(hotfix.get_value('InstallName').split('_for_')[1].split('~')[0] for hotfix in software_hive.get_key('Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages').iter_subkeys() if '_for_KB' in hotfix.get_value('InstallName') and hotfix.get_value('CurrentState') == 112)  # 112 is successfully installed
     software_hive_dict['hotfix'].update(set(hotfix.get_value('InstallLocation').split('-')[1] for hotfix in software_hive.get_key('Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages').iter_subkeys() if 'RollupFix' in hotfix.get_value('InstallName') and hotfix.get_value('CurrentState') == 112))  # 112 is successfully installed
+
+    # OS Version
+    software_hive_dict['os_version'] = ' '.join([software_hive.get_key('Software\Microsoft\Windows\CurrentVersion\Flighting\Build').get_value('OSVersion'), 'N/A Build', software_hive.get_key('Software\Microsoft\Windows NT\CurrentVersion').get_value('CurrentBuild')])
+
+    # Registered organization
+    software_hive_dict['registered_organization'] = software_hive.get_key('Software\Microsoft\Windows\CurrentVersion\Flighting\Build').get_value('RegisteredOrganization')
+
+    # Return results
     return software_hive_dict
 
 
@@ -152,14 +171,14 @@ def main():
     systeminfo.update(parse_software_hive(software_hive))
     output = f"""Host Name:                 {systeminfo['hostname'].upper()}
 OS Name:                   {systeminfo['os_name']}
-OS Version:                10.0.17134 N/A Build 17134 *
+OS Version:                {systeminfo['os_version']}
 OS Manufacturer:           Microsoft Corporation *
 OS Configuration:          Standalone Workstation *
 OS Build Type:             {systeminfo['os_build_type']}
 Registered Owner:          {systeminfo['registered_owner']}
-Registered Organization:   *
+Registered Organization:   {systeminfo['registered_organization'] if systeminfo['registered_organization'] else ''}
 Product ID:                {systeminfo['product_id']}
-Original Install Date:     {systeminfo['install_date']}  # TODO Add timezone offset and convert string
+Original Install Date:     {datetime.fromtimestamp(systeminfo['install_date']).strftime('%d-%m-%Y, %H:%M:%S')}  # TODO Add timezone offset
 System Boot Time:          0-0-0000, 00:00:00
 System Manufacturer:       {systeminfo['manufacturer']}
 System Model:              {systeminfo['model']}
