@@ -37,23 +37,63 @@ def parse_system_hive(system_hive: RegistryHive) -> dict:
             break
     else:
         raise ValueError('Error determining current control set.')
-    system_hive_dict = {'hostname': system_hive.get_key(f'{current_control_set}\Services\Tcpip\Parameters').get_value('Hostname')}
+    # Determine current hardware config
     current_hardware_config = system_hive.get_key('SYSTEM\HardwareConfig').get_value('LastConfig')
+
+    # Hostname
+    system_hive_dict = {'hostname': system_hive.get_key(f'{current_control_set}\Services\Tcpip\Parameters').get_value('Hostname')}
+
+    # BIOS Version
     bios_version = system_hive.get_key(f"SYSTEM\HardwareConfig\{current_hardware_config}").get_value('BIOSVersion')
     bios_vendor = system_hive.get_key(f"SYSTEM\HardwareConfig\{current_hardware_config}").get_value('BIOSVendor')
     bios_release_date = system_hive.get_key(f"SYSTEM\HardwareConfig\{current_hardware_config}").get_value('BIOSReleaseDate')
     system_hive_dict['bios_version'] = f'{bios_vendor} {bios_version}, {bios_release_date}'
+
+    # Domain
     system_hive_dict['domain'] = system_hive.get_key(f'{current_control_set}\Services\Tcpip\Parameters').get_value('Domain')
     system_hive_dict['domain'] = system_hive_dict['domain'] if system_hive_dict['domain'] != 0 else 'WORKGROUP'
+
+    # Page file locations
     system_hive_dict['page_file_locations'] = system_hive.get_key(f'{current_control_set}\Control\Session Manager\Memory Management').get_value('PagingFiles')[::3]
     # TODO This could probably be improved if I could find the system drive letter in the registry
     for idx, page_file_location in enumerate(system_hive_dict['page_file_locations']):
         if page_file_location[0] == '?':
             system_hive_dict['page_file_locations'][idx] = page_file_location.replace('?', system_hive.get_key(f'{current_control_set}\Control\Session Manager\Memory Management').get_value('ExistingPageFiles')[0][4])
+
+    # Boot device
     system_hive_dict['boot_device'] = system_hive.get_key('SYSTEM\Setup').get_value('SystemPartition')
+
+    # System manufacturer
     system_hive_dict['manufacturer'] = system_hive.get_key(f'SYSTEM\HardwareConfig\{current_hardware_config}').get_value('SystemManufacturer')
+
+    # System model
     system_hive_dict['model'] = system_hive.get_key(f'SYSTEM\HardwareConfig\{current_hardware_config}').get_value('SystemProductName')
+
+    # System type
     system_hive_dict['type'] = system_hive.get_key(f'{current_control_set}\Enum\ROOT\ACPI_HAL\\0000').get_value('DeviceDesc').split(';')[1].replace('ACPI ', '')
+
+    # Network adapters
+    # MAC address can optionally be changed with NetworkAddress entry
+    network_adapters = dict()
+    for network_adapter in system_hive.get_key(''.join([current_control_set, '\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}'])).iter_subkeys():
+        if network_adapter.get_value('NetCfgInstanceId'):
+            network_adapters[network_adapter.get_value('NetCfgInstanceId')] = (network_adapter.get_value('DriverDesc'), network_adapter.get_value('NetworkAddress'))
+    interfaces = dict()
+    for interface in system_hive.get_key(''.join([current_control_set, '\Services\Tcpip\Parameters\Interfaces'])).iter_subkeys():
+        if not network_adapters.get(interface.name.upper()):
+            continue
+        interfaces[interface.name] = {
+                'desc': network_adapters[interface.name.upper()][0],
+                'mac': network_adapters[interface.name.upper()][1],
+                'dhcp_activated': interface.get_value('EnableDHCP') == 1,
+                'dhcp_server': interface.get_value('DhcpServer'),
+                'ip_addresses': [interface.get_value('DhcpIPAddress')] if interface.get_value('DhcpIPAddress') else interface.get_value('IPAddress')
+        }
+        if not interfaces[interface.name]['ip_addresses']:
+            del interfaces[interface.name]
+    system_hive_dict['network_cards'] = interfaces
+
+    # Return results
     return system_hive_dict
 
 
@@ -149,35 +189,16 @@ Hotfix(s):                 {len(systeminfo['hotfix'])} Hotfix(s) Installed.
 """
     for idx, hotfix in enumerate(systeminfo['hotfix'], start=1):
         output += f'                           [{str(idx).zfill(2)}]: {hotfix}\n'
-    output += """Network Card(s):           6 NIC(s) Installed. *
-                           [01]: TAP-Windows Adapter V9 *
-                                 Connection Name: Ethernet 2 *
-                                 Status:          Media disconnected *
-                           [02]: VMware Virtual Ethernet Adapter for VMnet1 *
-                                 Connection Name: VMware Network Adapter VMnet1 *
-                                 DHCP Enabled:    No *
-                                 IP address(es) *
-                                 [01]: 192.168.150.1 *
-                                 [02]: fe80::8900:6f73:9629:d8f3 *
-                           [03]: VMware Virtual Ethernet Adapter for VMnet8 *
-                                 Connection Name: VMware Network Adapter VMnet8 *
-                                 DHCP Enabled:    No *
-                                 IP address(es) *
-                                 [01]: 192.168.159.1 *
-                                 [02]: fe80::984a:e9de:308b:2457 *
-                           [04]: Intel(R) Ethernet Connection I219-LM *
-                                 Connection Name: Ethernet *
-                                 Status:          Media disconnected *
-                           [05]: Intel(R) Dual Band Wireless-AC 8260 *
-                                 Connection Name: Wi-Fi *
-                                 DHCP Enabled:    Yes *
-                                 DHCP Server:     192.168.1.1 *
-                                 IP address(es) *
-                                 [01]: 192.168.1.57 *
-                                 [02]: fe80::391d:20cc:b273:851c *
-                           [06]: Generic Mobile Broadband Adapter *
-                                 Connection Name: Cellular *
-                                 Status:          Media disconnected *
+    output += f'Network Card(s):           {len(systeminfo["network_cards"])} NIC(s) Installed.'
+    for idx, network_card in enumerate(systeminfo['network_cards'].values(), start=1):
+        output += f"""
+                           [{str(idx).zfill(2)}]: {network_card['desc']}
+                                 Connection Name: UNKNOWN *
+                                 DHCP Enabled:    {'Yes' if network_card['dhcp_activated'] else 'No'}
+                                 IP address(es)"""
+        for idx2, ip_address in enumerate(network_card['ip_addresses'], start=1):
+            output += f'\n                                 [{str(idx2).zfill(2)}]: {ip_address}'
+    output += """
 Hyper-V Requirements:      VM Monitor Mode Extensions: Yes *
                            Virtualization Enabled In Firmware: Yes *
                            Second Level Address Translation: Yes *
