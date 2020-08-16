@@ -15,3 +15,12 @@ cd systeminfo.py
 pipenv install
 ```
 or if you want to help with development, use `pipenv install --dev` instead.
+
+## Limitations
+Some information is not stored persistently and can thus not be determined with certainty.  
+Where applicable I have implemented workarounds to get similar information, but you need to verify the following entries yourself if you need certainty:
+- Processor(s): Should be read from the volatile key `HKLM\HARDWARE\DESCRIPTION\System\CentralProcessor`, but I have found `HKLM\System\CurrentControlSet\Control\Session Manager\Environment\PROCESSOR_IDENTIFIER` to hold similar information
+- Logon server: Should be read from the volatile key `HKCU\Volatile Environment\LOGONSERVER`, I have not found any suitable alternatives yet
+l
+- Windows/System directory: I could not find where the data is originally read from, so I opted to use HKLM\SYSTEM\ControlSet001\Services\Lsa\Performance\Library as a path that should exist on all Windows versions and parsed the data from that
+l

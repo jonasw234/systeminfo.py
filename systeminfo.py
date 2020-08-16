@@ -111,6 +111,14 @@ def parse_system_hive(system_hive: RegistryHive) -> dict:
             del interfaces[interface.name]
     system_hive_dict['network_cards'] = interfaces
 
+    # Processor(s)
+    system_hive_dict['processors'] = system_hive.get_key(f'{current_control_set}\Control\Session Manager\Environment').get_value('PROCESSOR_IDENTIFIER')  # This is technically not correct, because the real value is in the volatile HKLM\HARDWARE\DESCRIPTION\System\CentralProcessor subkeys
+
+    # Windows/System directory
+    lsa_library = system_hive.get_key(f'{current_control_set}\Services\Lsa\Performance').get_value('Library')
+    system_hive_dict['windows_directory'] = '\\'.join(lsa_library.split('\\')[:2])
+    system_hive_dict['system_directory'] = '\\'.join(lsa_library.split('\\')[:3])
+
     # Return results
     return system_hive_dict
 
@@ -237,11 +245,11 @@ System Boot Time:          0-0-0000, 00:00:00
 System Manufacturer:       {systeminfo['manufacturer']}
 System Model:              {systeminfo['model']}
 System Type:               {systeminfo['type']}
-Processor(s):              1 Processor(s) Installed. *
-                           [01]: Intel64 Family 6 Model 78 Stepping 3 GenuineIntel ~2396 Mhz *
+Processor(s):              1 Processor(s) Installed.
+                           [01]: {systeminfo['processors']}
 BIOS Version:              {systeminfo['bios_version']}
-Windows Directory:         C:\WINDOWS *
-System Directory:          C:\WINDOWS\system32 *
+Windows Directory:         {systeminfo['windows_directory']}
+System Directory:          {systeminfo['system_directory']}
 Boot Device:               {systeminfo['boot_device']}
 System Locale:             en-us;English (United States) *
 Input Locale:              en-us;English (United States) *
