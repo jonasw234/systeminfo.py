@@ -313,10 +313,10 @@ Hotfix(s):                 {len(systeminfo['hotfix'])} Hotfix(s) Installed.
         for idx2, ip_address in enumerate(network_card['ip_addresses'], start=1):
             output += f'\n                                 [{str(idx2).zfill(2)}]: {ip_address}'
     output += """
-Hyper-V Requirements:      VM Monitor Mode Extensions: Yes *
-                           Virtualization Enabled In Firmware: Yes *
-                           Second Level Address Translation: Yes *
-                           Data Execution Prevention Available: Yes *
+Hyper-V Requirements:      VM Monitor Mode Extensions: UNKOWN
+                           Virtualization Enabled In Firmware: UNKOWN
+                           Second Level Address Translation: UNKOWN
+                           Data Execution Prevention Available: UNKOWN
 """
     print(output)
 
