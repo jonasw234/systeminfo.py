@@ -17,7 +17,7 @@ import os
 import sys
 
 from docopt import docopt
-from regipy.registry import RegistryHive
+from regipy.registry import RegistryHive, ConstError
 
 
 def determine_current_control_set(system_hive: RegistryHive) -> str:
@@ -61,51 +61,51 @@ def parse_system_hive(system_hive: RegistryHive) -> dict:
     # Determine current control set
     current_control_set = determine_current_control_set(system_hive)
     # Determine current hardware config
-    current_hardware_config = system_hive.get_key('SYSTEM\HardwareConfig').get_value('LastConfig')
+    current_hardware_config = system_hive.get_key('SYSTEM\\HardwareConfig').get_value('LastConfig')
 
     # Hostname
-    system_hive_dict = {'hostname': system_hive.get_key(f'{current_control_set}\Services\Tcpip\Parameters').get_value('Hostname')}
+    system_hive_dict = {'hostname': system_hive.get_key(f'{current_control_set}\\Services\\Tcpip\\Parameters').get_value('Hostname')}
 
     # BIOS Version
-    bios_version = system_hive.get_key(f"SYSTEM\HardwareConfig\{current_hardware_config}").get_value('BIOSVersion')
-    bios_vendor = system_hive.get_key(f"SYSTEM\HardwareConfig\{current_hardware_config}").get_value('BIOSVendor')
-    bios_release_date = system_hive.get_key(f"SYSTEM\HardwareConfig\{current_hardware_config}").get_value('BIOSReleaseDate')
+    bios_version = system_hive.get_key(f"SYSTEM\\HardwareConfig\\{current_hardware_config}").get_value('BIOSVersion')
+    bios_vendor = system_hive.get_key(f"SYSTEM\\HardwareConfig\\{current_hardware_config}").get_value('BIOSVendor')
+    bios_release_date = system_hive.get_key(f"SYSTEM\\HardwareConfig\\{current_hardware_config}").get_value('BIOSReleaseDate')
     system_hive_dict['bios_version'] = f'{bios_vendor} {bios_version}, {bios_release_date}'
 
     # Domain
-    system_hive_dict['domain'] = system_hive.get_key(f'{current_control_set}\Services\Tcpip\Parameters').get_value('Domain')
+    system_hive_dict['domain'] = system_hive.get_key(f'{current_control_set}\\Services\\Tcpip\\Parameters').get_value('Domain')
     system_hive_dict['domain'] = system_hive_dict['domain'] if system_hive_dict['domain'] != 0 else 'WORKGROUP'
 
     # Page file locations
-    system_hive_dict['page_file_locations'] = system_hive.get_key(f'{current_control_set}\Control\Session Manager\Memory Management').get_value('PagingFiles')[::3]
+    system_hive_dict['page_file_locations'] = system_hive.get_key(f'{current_control_set}\\Control\\Session Manager\\Memory Management').get_value('PagingFiles')[::3]
     # TODO This could probably be improved if I could find the system drive letter in the registry
     for idx, page_file_location in enumerate(system_hive_dict['page_file_locations']):
         if page_file_location[0] == '?':
-            system_hive_dict['page_file_locations'][idx] = page_file_location.replace('?', system_hive.get_key(f'{current_control_set}\Control\Session Manager\Memory Management').get_value('ExistingPageFiles')[0][4])
+            system_hive_dict['page_file_locations'][idx] = page_file_location.replace('?', system_hive.get_key(f'{current_control_set}\\Control\\Session Manager\\Memory Management').get_value('ExistingPageFiles')[0][4])
 
     # Page file max size
-    system_hive_dict['page_file_max_sizes'] = system_hive.get_key(f'{current_control_set}\Control\Session Manager\Memory Management').get_value('PagingFiles')[2::3]
+    system_hive_dict['page_file_max_sizes'] = system_hive.get_key(f'{current_control_set}\\Control\\Session Manager\\Memory Management').get_value('PagingFiles')[2::3]
 
     # Boot device
-    system_hive_dict['boot_device'] = system_hive.get_key('SYSTEM\Setup').get_value('SystemPartition')
+    system_hive_dict['boot_device'] = system_hive.get_key('SYSTEM\\Setup').get_value('SystemPartition')
 
     # System manufacturer
-    system_hive_dict['manufacturer'] = system_hive.get_key(f'SYSTEM\HardwareConfig\{current_hardware_config}').get_value('SystemManufacturer')
+    system_hive_dict['manufacturer'] = system_hive.get_key(f'SYSTEM\\HardwareConfig\\{current_hardware_config}').get_value('SystemManufacturer')
 
     # System model
-    system_hive_dict['model'] = system_hive.get_key(f'SYSTEM\HardwareConfig\{current_hardware_config}').get_value('SystemProductName')
+    system_hive_dict['model'] = system_hive.get_key(f'SYSTEM\\HardwareConfig\\{current_hardware_config}').get_value('SystemProductName')
 
     # System type
-    system_hive_dict['type'] = system_hive.get_key(f'{current_control_set}\Enum\ROOT\ACPI_HAL\\0000').get_value('DeviceDesc').split(';')[1].replace('ACPI ', '')
+    system_hive_dict['type'] = system_hive.get_key(f'{current_control_set}\\Enum\\ROOT\\ACPI_HAL\\0000').get_value('DeviceDesc').split(';')[1].replace('ACPI ', '')
 
     # Network adapters
     # MAC address can optionally be changed with NetworkAddress entry
     network_adapters = dict()
-    for network_adapter in system_hive.get_key(''.join([current_control_set, '\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}'])).iter_subkeys():
+    for network_adapter in system_hive.get_key(''.join([current_control_set, '\\Control\\Class\\{4d36e972-e325-11ce-bfc1-08002be10318}'])).iter_subkeys():
         if network_adapter.get_value('NetCfgInstanceId'):
             network_adapters[network_adapter.get_value('NetCfgInstanceId')] = (network_adapter.get_value('DriverDesc'), network_adapter.get_value('NetworkAddress'))
     interfaces = dict()
-    for interface in system_hive.get_key(''.join([current_control_set, '\Services\Tcpip\Parameters\Interfaces'])).iter_subkeys():
+    for interface in system_hive.get_key(''.join([current_control_set, '\\Services\\Tcpip\\Parameters\\Interfaces'])).iter_subkeys():
         if not network_adapters.get(interface.name.upper()):
             continue
         interfaces[interface.name] = {
@@ -121,10 +121,10 @@ def parse_system_hive(system_hive: RegistryHive) -> dict:
     system_hive_dict['network_cards'] = interfaces
 
     # Processor(s)
-    system_hive_dict['processors'] = system_hive.get_key(f'{current_control_set}\Control\Session Manager\Environment').get_value('PROCESSOR_IDENTIFIER')  # This is technically not correct, because the real value is in the volatile HKLM\HARDWARE\DESCRIPTION\System\CentralProcessor subkeys
+    system_hive_dict['processors'] = system_hive.get_key(f'{current_control_set}\\Control\\Session Manager\\Environment').get_value('PROCESSOR_IDENTIFIER')  # This is technically not correct, because the real value is in the volatile HKLM\\HARDWARE\\DESCRIPTION\\System\\CentralProcessor subkeys
 
     # Windows/System directory
-    lsa_library = system_hive.get_key(f'{current_control_set}\Services\Lsa\Performance').get_value('Library')  # It’s a bit of a hack, but I can’t find the real key to read
+    lsa_library = system_hive.get_key(f'{current_control_set}\\Services\\Lsa\\Performance').get_value('Library')  # It’s a bit of a hack, but I can’t find the real key to read
     system_hive_dict['windows_directory'] = '\\'.join(lsa_library.split('\\')[:2])
     system_hive_dict['system_directory'] = '\\'.join(lsa_library.split('\\')[:3])
 
@@ -147,29 +147,29 @@ def parse_software_hive(software_hive: RegistryHive) -> dict:
         Dictionary with the information for systeminfo
     """
     # Registered owner
-    software_hive_dict = {'registered_owner': software_hive.get_key('Software\Microsoft\Windows NT\CurrentVersion').get_value('RegisteredOwner')}
+    software_hive_dict = {'registered_owner': software_hive.get_key('Software\\Microsoft\\Windows NT\\CurrentVersion').get_value('RegisteredOwner')}
 
     # OS name
-    software_hive_dict['os_name'] = ' '.join(['Microsoft', software_hive.get_key('Software\Microsoft\Windows NT\CurrentVersion').get_value('ProductName')])
+    software_hive_dict['os_name'] = ' '.join(['Microsoft', software_hive.get_key('Software\\Microsoft\\Windows NT\\CurrentVersion').get_value('ProductName')])
 
     # OS build type
-    software_hive_dict['os_build_type'] = software_hive.get_key('Software\Microsoft\Windows NT\CurrentVersion').get_value('CurrentType')
+    software_hive_dict['os_build_type'] = software_hive.get_key('Software\\Microsoft\\Windows NT\\CurrentVersion').get_value('CurrentType')
 
     # Product ID
-    software_hive_dict['product_id'] = software_hive.get_key('Software\Microsoft\Windows NT\CurrentVersion').get_value('ProductId')
+    software_hive_dict['product_id'] = software_hive.get_key('Software\\Microsoft\\Windows NT\\CurrentVersion').get_value('ProductId')
 
     # Install date
-    software_hive_dict['install_date'] = software_hive.get_key('Software\Microsoft\Windows NT\CurrentVersion').get_value('InstallDate')  # UTC, Needs timezone offset
+    software_hive_dict['install_date'] = software_hive.get_key('Software\\Microsoft\\Windows NT\\CurrentVersion').get_value('InstallDate')  # UTC, Needs timezone offset
 
     # Hotfixes
-    software_hive_dict['hotfix'] = set(hotfix.get_value('InstallName').split('_for_')[1].split('~')[0] for hotfix in software_hive.get_key('Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages').iter_subkeys() if '_for_KB' in hotfix.get_value('InstallName') and hotfix.get_value('CurrentState') == 112)  # 112 is successfully installed
-    software_hive_dict['hotfix'].update(set(hotfix.get_value('InstallLocation').split('-')[1] for hotfix in software_hive.get_key('Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages').iter_subkeys() if 'RollupFix' in hotfix.get_value('InstallName') and hotfix.get_value('CurrentState') == 112))  # 112 is successfully installed
+    software_hive_dict['hotfix'] = set(hotfix.get_value('InstallName').split('_for_')[1].split('~')[0] for hotfix in software_hive.get_key('Software\\Microsoft\\Windows\\CurrentVersion\\Component Based Servicing\\Packages').iter_subkeys() if '_for_KB' in hotfix.get_value('InstallName') and hotfix.get_value('CurrentState') == 112)  # 112 is successfully installed
+    software_hive_dict['hotfix'].update(set(hotfix.get_value('InstallLocation').split('-')[1] for hotfix in software_hive.get_key('Software\\Microsoft\\Windows\\CurrentVersion\\Component Based Servicing\\Packages').iter_subkeys() if 'RollupFix' in hotfix.get_value('InstallName') and hotfix.get_value('CurrentState') == 112))  # 112 is successfully installed
 
     # OS Version
-    software_hive_dict['os_version'] = ' '.join([software_hive.get_key('Software\Microsoft\Windows\CurrentVersion\Flighting\Build').get_value('OSVersion'), 'N/A Build', software_hive.get_key('Software\Microsoft\Windows NT\CurrentVersion').get_value('CurrentBuild')])
+    software_hive_dict['os_version'] = ' '.join([software_hive.get_key('Software\\Microsoft\\Windows\\CurrentVersion\\Flighting\\Build').get_value('OSVersion'), 'N/A Build', software_hive.get_key('Software\\Microsoft\\Windows NT\\CurrentVersion').get_value('CurrentBuild')])
 
     # Registered organization
-    software_hive_dict['registered_organization'] = software_hive.get_key('Software\Microsoft\Windows\CurrentVersion\Flighting\Build').get_value('RegisteredOrganization')
+    software_hive_dict['registered_organization'] = software_hive.get_key('Software\\Microsoft\\Windows\\CurrentVersion\\Flighting\\Build').get_value('RegisteredOrganization')
 
     # Return results
     return software_hive_dict
@@ -194,8 +194,8 @@ def parse_timezone_information(system_hive: RegistryHive, software_hive: Registr
     # Determine current control set
     current_control_set = determine_current_control_set(system_hive)
     # Timezone information
-    timezone_key_name = system_hive.get_key(f'{current_control_set}\Control\TimeZoneInformation').get_value('TimeZoneKeyName')
-    timezone_information = {'timezone_desc': software_hive.get_key(f'Software\Microsoft\Windows NT\CurrentVersion\Time Zones\{timezone_key_name}').get_value('Display')}
+    timezone_key_name = system_hive.get_key(f'{current_control_set}\\Control\\TimeZoneInformation').get_value('TimeZoneKeyName')
+    timezone_information = {'timezone_desc': software_hive.get_key(f'Software\\Microsoft\\Windows NT\\CurrentVersion\\Time Zones\\{timezone_key_name}').get_value('Display')}
     timezone_information['timezone_offset'] = timezone_information['timezone_desc'].split('+')[1].split(')')[0]
 
     # Return results
@@ -216,7 +216,7 @@ def parse_default_hive(default_hive: RegistryHive) -> dict:
     dict
         Dictionary with the information for systeminfo
     """
-    default_hive_dict = {'system_locale': ';'.join([default_hive.get_key(".DEFAULT\Control Panel\International").get_value("LocaleName"), default_hive.get_key(".DEFAULT\Control Panel\International").get_value("sCountry")])}
+    default_hive_dict = {'system_locale': ';'.join([default_hive.get_key(".DEFAULT\\Control Panel\\International").get_value("LocaleName"), default_hive.get_key(".DEFAULT\\Control Panel\\International").get_value("sCountry")])}
 
     # Return results
     return default_hive_dict
