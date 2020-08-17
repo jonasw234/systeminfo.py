@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 """
-Generates systeminfo-like output from offline images
+Generates systeminfo-like output from offline images.
 
-Usage: systeminfo.py -p MOUNTPOINT
+Some information can only be correctly extracted at runtime.
+Please see Limitations in the README.md file
+Stars after entries mean that the functionality is not fully implemented yet.
+
+Usage: systeminfo.py [-h] -p MOUNTPOINT
 
 Options:
-    -p MOUNTPOINT --mountpoint=MOUNTPOINT  Search for the needed registry hives (SYSTEM and SOFTWARE) underneath this path
+    -h --help                              Print help text
+    -p MOUNTPOINT --mountpoint=MOUNTPOINT  Search for the needed registry hives (SYSTEM, SOFTWARE, and optionally DEFAULT) underneath this path
 """
 from datetime import datetime, timedelta
 import os
