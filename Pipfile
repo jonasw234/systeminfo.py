@@ -6,6 +6,8 @@ verify_ssl = true
 [dev-packages]
 ipdb = "*"
 ipython = "*"
+pylint = "*"
+black = "*"
 
 [packages]
 docopt = "*"
@@ -13,3 +15,6 @@ regipy = "*"
 
 [requires]
 python_version = "3.8"
+
+[pipenv]
+allow_prereleases = true
