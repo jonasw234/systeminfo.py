@@ -17,6 +17,7 @@ import os
 import sys
 
 from docopt import docopt
+from regipy.exceptions import RegistryKeyNotFoundException
 from regipy.registry import RegistryHive, ConstError
 
 
@@ -61,9 +62,12 @@ def parse_system_hive(system_hive: RegistryHive) -> dict:
     # Determine current control set
     current_control_set = determine_current_control_set(system_hive)
     # Determine current hardware config
-    current_hardware_config = system_hive.get_key("SYSTEM\\HardwareConfig").get_value(
-        "LastConfig"
-    )
+    try:
+        current_hardware_config = system_hive.get_key("SYSTEM\\HardwareConfig").get_value(
+            "LastConfig"
+        )
+    except RegistryKeyNotFoundException:
+        current_hardware_config = None
 
     # Hostname
     system_hive_dict = {
@@ -73,18 +77,23 @@ def parse_system_hive(system_hive: RegistryHive) -> dict:
     }
 
     # BIOS Version
-    bios_version = system_hive.get_key(
-        f"SYSTEM\\HardwareConfig\\{current_hardware_config}"
-    ).get_value("BIOSVersion")
-    bios_vendor = system_hive.get_key(
-        f"SYSTEM\\HardwareConfig\\{current_hardware_config}"
-    ).get_value("BIOSVendor")
-    bios_release_date = system_hive.get_key(
-        f"SYSTEM\\HardwareConfig\\{current_hardware_config}"
-    ).get_value("BIOSReleaseDate")
-    system_hive_dict[
-        "bios_version"
-    ] = f"{bios_vendor} {bios_version}, {bios_release_date}"
+    if current_hardware_config:
+        bios_version = system_hive.get_key(
+            f"SYSTEM\\HardwareConfig\\{current_hardware_config}"
+        ).get_value("BIOSVersion")
+        bios_vendor = system_hive.get_key(
+            f"SYSTEM\\HardwareConfig\\{current_hardware_config}"
+        ).get_value("BIOSVendor")
+        bios_release_date = system_hive.get_key(
+            f"SYSTEM\\HardwareConfig\\{current_hardware_config}"
+        ).get_value("BIOSReleaseDate")
+        system_hive_dict[
+            "bios_version"
+        ] = f"{bios_vendor} {bios_version}, {bios_release_date}"
+    else:
+        system_hive_dict[
+            "bios_version"
+        ] = "UNKNOWN UNKNOWN, UNKNOWN"
 
     # Domain
     system_hive_dict["domain"] = system_hive.get_key(
@@ -118,15 +127,19 @@ def parse_system_hive(system_hive: RegistryHive) -> dict:
         "SystemPartition"
     )
 
-    # System manufacturer
-    system_hive_dict["manufacturer"] = system_hive.get_key(
-        f"SYSTEM\\HardwareConfig\\{current_hardware_config}"
-    ).get_value("SystemManufacturer")
+    if current_hardware_config:
+        # System manufacturer
+        system_hive_dict["manufacturer"] = system_hive.get_key(
+            f"SYSTEM\\HardwareConfig\\{current_hardware_config}"
+        ).get_value("SystemManufacturer")
 
-    # System model
-    system_hive_dict["model"] = system_hive.get_key(
-        f"SYSTEM\\HardwareConfig\\{current_hardware_config}"
-    ).get_value("SystemProductName")
+        # System model
+        system_hive_dict["model"] = system_hive.get_key(
+            f"SYSTEM\\HardwareConfig\\{current_hardware_config}"
+        ).get_value("SystemProductName")
+    else:
+        system_hive_dict["manufacturer"] = "UNKNOWN"
+        system_hive_dict["model"] = "UNKNOWN"
 
     # System type
     system_hive_dict["type"] = (
@@ -375,28 +388,28 @@ def main():
         if os.path.isfile(os.path.join(args["--mountpoint"], "SYSTEM")):
             system_hive = RegistryHive(os.path.join(args["--mountpoint"], "SYSTEM"))
         elif os.path.isfile(
-            os.path.join(args["--mountpoint"], "Windows", "config", "SYSTEM")
+            os.path.join(args["--mountpoint"], "Windows", "System32", "config", "SYSTEM")
         ):
             system_hive = RegistryHive(
-                os.path.join(args["--mountpoint"], "Windows", "config", "SYSTEM")
+                os.path.join(args["--mountpoint"], "Windows", "System32", "config", "SYSTEM")
             )
         else:
             print(
-                f'Error: Neither {os.path.join(args["--mountpoint"], "SYSTEM")} nor {os.path.join(args["--mountpoint"], "Windows", "config", "SYSTEM")} seem to be correct.  Please set the mountpoint directly to the path for the registry hives.'
+                f'Error: Neither {os.path.join(args["--mountpoint"], "SYSTEM")} nor {os.path.join(args["--mountpoint"], "Windows", "System32", "config", "SYSTEM")} seem to be correct.  Please set the mountpoint directly to the path for the registry hives.'
             )
             sys.exit(1)
         # Software hive
         if os.path.isfile(os.path.join(args["--mountpoint"], "SOFTWARE")):
             software_hive = RegistryHive(os.path.join(args["--mountpoint"], "SOFTWARE"))
         elif os.path.isfile(
-            os.path.join(args["--mountpoint"], "Windows", "config", "SOFTWARE")
+            os.path.join(args["--mountpoint"], "Windows", "System32", "config", "SOFTWARE")
         ):
             software_hive = RegistryHive(
-                os.path.join(args["--mountpoint"], "Windows", "config", "SOFTWARE")
+                os.path.join(args["--mountpoint"], "Windows", "System32", "config", "SOFTWARE")
             )
         else:
             print(
-                f'Error: Neither {os.path.join(args["--mountpoint"], "SOFTWARE")} nor {os.path.join(args["--mountpoint"], "Windows", "config", "SOFTWARE")} seem to be correct.  Please set the mountpoint directly to the path for the registry hives.'
+                f'Error: Neither {os.path.join(args["--mountpoint"], "SOFTWARE")} nor {os.path.join(args["--mountpoint"], "Windows", "System32", "config", "SOFTWARE")} seem to be correct.  Please set the mountpoint directly to the path for the registry hives.'
             )
             sys.exit(1)
         # Default hive
@@ -404,14 +417,14 @@ def main():
         if os.path.isfile(os.path.join(args["--mountpoint"], "DEFAULT")):
             default_hive = RegistryHive(os.path.join(args["--mountpoint"], "DEFAULT"))
         elif os.path.isfile(
-            os.path.join(args["--mountpoint"], "Windows", "config", "DEFAULT")
+            os.path.join(args["--mountpoint"], "Windows", "System32", "config", "DEFAULT")
         ):
             default_hive = RegistryHive(
-                os.path.join(args["--mountpoint"], "Windows", "config", "DEFAULT")
+                os.path.join(args["--mountpoint"], "Windows", "System32", "config", "DEFAULT")
             )
         else:
             print(
-                f'Warning: Neither {os.path.join(args["--mountpoint"], "DEFAULT")} nor {os.path.join(args["--mountpoint"], "Windows", "config", "DEFAULT")} seem to be correct.  System locale will not be correct.'
+                f'Warning: Neither {os.path.join(args["--mountpoint"], "DEFAULT")} nor {os.path.join(args["--mountpoint"], "Windows", "System32", "config", "DEFAULT")} seem to be correct.  System locale will not be correct.'
             )
     except ConstError:
         print("Invalid registry hives found.")
