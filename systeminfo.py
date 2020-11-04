@@ -286,8 +286,8 @@ def parse_software_hive(software_hive: RegistryHive) -> dict:
     software_hive_dict["os_version"] = " ".join(
         [
             software_hive.get_key(
-                "Software\\Microsoft\\Windows\\CurrentVersion\\Flighting\\Build"
-            ).get_value("OSVersion"),
+                "Software\\Microsoft\\Windows NT\\CurrentVersion"
+            ).get_value("ProductName"),
             "N/A Build",
             software_hive.get_key(
                 "Software\\Microsoft\\Windows NT\\CurrentVersion"
@@ -297,7 +297,7 @@ def parse_software_hive(software_hive: RegistryHive) -> dict:
 
     # Registered organization
     software_hive_dict["registered_organization"] = software_hive.get_key(
-        "Software\\Microsoft\\Windows\\CurrentVersion\\Flighting\\Build"
+        "Software\\Microsoft\\Windows NT\\CurrentVersion"
     ).get_value("RegisteredOrganization")
 
     # Return results
@@ -327,7 +327,8 @@ def parse_timezone_information(
     # Timezone information
     timezone_key_name = system_hive.get_key(
         f"{current_control_set}\\Control\\TimeZoneInformation"
-    ).get_value("TimeZoneKeyName")
+    ).get_value("TimeZoneKeyName").replace(b"\x00", b"")
+    timezone_key_name = timezone_key_name[:timezone_key_name.find(b"Time") + len("Time")].decode("utf-8")
     timezone_information = {
         "timezone_desc": software_hive.get_key(
             f"Software\\Microsoft\\Windows NT\\CurrentVersion\\Time Zones\\{timezone_key_name}"
