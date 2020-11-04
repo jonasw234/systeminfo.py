@@ -12,13 +12,13 @@ Options:
     -h --help                              Print help text
     -p MOUNTPOINT --mountpoint=MOUNTPOINT  Search for the needed registry hives (SYSTEM, SOFTWARE, and optionally DEFAULT) underneath this path
 """
-from datetime import datetime, timedelta
 import os
 import sys
+from datetime import datetime, timedelta
 
 from docopt import docopt
 from regipy.exceptions import RegistryKeyNotFoundException
-from regipy.registry import RegistryHive, ConstError
+from regipy.registry import ConstError, RegistryHive
 
 
 def determine_current_control_set(system_hive: RegistryHive) -> str:
@@ -63,9 +63,9 @@ def parse_system_hive(system_hive: RegistryHive) -> dict:
     current_control_set = determine_current_control_set(system_hive)
     # Determine current hardware config
     try:
-        current_hardware_config = system_hive.get_key("SYSTEM\\HardwareConfig").get_value(
-            "LastConfig"
-        )
+        current_hardware_config = system_hive.get_key(
+            "SYSTEM\\HardwareConfig"
+        ).get_value("LastConfig")
     except RegistryKeyNotFoundException:
         current_hardware_config = None
 
@@ -91,9 +91,7 @@ def parse_system_hive(system_hive: RegistryHive) -> dict:
             "bios_version"
         ] = f"{bios_vendor} {bios_version}, {bios_release_date}"
     else:
-        system_hive_dict[
-            "bios_version"
-        ] = "UNKNOWN UNKNOWN, UNKNOWN"
+        system_hive_dict["bios_version"] = "UNKNOWN UNKNOWN, UNKNOWN"
 
     # Domain
     system_hive_dict["domain"] = system_hive.get_key(
@@ -325,10 +323,14 @@ def parse_timezone_information(
     # Determine current control set
     current_control_set = determine_current_control_set(system_hive)
     # Timezone information
-    timezone_key_name = system_hive.get_key(
-        f"{current_control_set}\\Control\\TimeZoneInformation"
-    ).get_value("TimeZoneKeyName").replace(b"\x00", b"")
-    timezone_key_name = timezone_key_name[:timezone_key_name.find(b"Time") + len("Time")].decode("utf-8")
+    timezone_key_name = (
+        system_hive.get_key(f"{current_control_set}\\Control\\TimeZoneInformation")
+        .get_value("TimeZoneKeyName")
+        .replace(b"\x00", b"")
+    )
+    timezone_key_name = timezone_key_name[
+        : timezone_key_name.find(b"Time") + len("Time")
+    ].decode("utf-8")
     timezone_information = {
         "timezone_desc": software_hive.get_key(
             f"Software\\Microsoft\\Windows NT\\CurrentVersion\\Time Zones\\{timezone_key_name}"
@@ -386,46 +388,47 @@ def main():
     system_hive = None
     try:
         # System hive
+        system_hive_full_path = os.path.join(
+            args["--mountpoint"], "Windows", "System32", "config", "SYSTEM"
+        )
         if os.path.isfile(os.path.join(args["--mountpoint"], "SYSTEM")):
             system_hive = RegistryHive(os.path.join(args["--mountpoint"], "SYSTEM"))
-        elif os.path.isfile(
-            os.path.join(args["--mountpoint"], "Windows", "System32", "config", "SYSTEM")
-        ):
-            system_hive = RegistryHive(
-                os.path.join(args["--mountpoint"], "Windows", "System32", "config", "SYSTEM")
-            )
+        elif os.path.isfile(system_hive_full_path):
+            system_hive = RegistryHive(system_hive_full_path)
         else:
             print(
-                f'Error: Neither {os.path.join(args["--mountpoint"], "SYSTEM")} nor {os.path.join(args["--mountpoint"], "Windows", "System32", "config", "SYSTEM")} seem to be correct.  Please set the mountpoint directly to the path for the registry hives.'
+                f'Error: Neither {os.path.join(args["--mountpoint"], "SYSTEM")} nor {system_hive_full_path} seem to be correct.  Please set the mountpoint directly to the path for the registry hives.'
             )
             sys.exit(1)
         # Software hive
+        software_hive_full_path = os.path.join(
+            args["--mountpoint"], "Windows", "System32", "config", "SOFTWARE"
+        )
         if os.path.isfile(os.path.join(args["--mountpoint"], "SOFTWARE")):
             software_hive = RegistryHive(os.path.join(args["--mountpoint"], "SOFTWARE"))
-        elif os.path.isfile(
-            os.path.join(args["--mountpoint"], "Windows", "System32", "config", "SOFTWARE")
-        ):
-            software_hive = RegistryHive(
-                os.path.join(args["--mountpoint"], "Windows", "System32", "config", "SOFTWARE")
-            )
+        elif os.path.isfile(software_hive_full_path):
+            software_hive = RegistryHive(software_hive_full_path)
         else:
             print(
-                f'Error: Neither {os.path.join(args["--mountpoint"], "SOFTWARE")} nor {os.path.join(args["--mountpoint"], "Windows", "System32", "config", "SOFTWARE")} seem to be correct.  Please set the mountpoint directly to the path for the registry hives.'
+                f'Error: Neither {os.path.join(args["--mountpoint"], "SOFTWARE")} nor {software_hive_full_path} seem to be correct.  Please set the mountpoint directly to the path for the registry hives.'
             )
             sys.exit(1)
         # Default hive
         default_hive = None
+        default_hive_full_path = os.path.join(
+            args["--mountpoint"], "Windows", "System32", "config", "DEFAULT"
+        )
         if os.path.isfile(os.path.join(args["--mountpoint"], "DEFAULT")):
             default_hive = RegistryHive(os.path.join(args["--mountpoint"], "DEFAULT"))
         elif os.path.isfile(
-            os.path.join(args["--mountpoint"], "Windows", "System32", "config", "DEFAULT")
-        ):
-            default_hive = RegistryHive(
-                os.path.join(args["--mountpoint"], "Windows", "System32", "config", "DEFAULT")
+            os.path.join(
+                args["--mountpoint"], "Windows", "System32", "config", "DEFAULT"
             )
+        ):
+            default_hive = RegistryHive(default_hive_full_path)
         else:
             print(
-                f'Warning: Neither {os.path.join(args["--mountpoint"], "DEFAULT")} nor {os.path.join(args["--mountpoint"], "Windows", "System32", "config", "DEFAULT")} seem to be correct.  System locale will not be correct.'
+                f'Warning: Neither {os.path.join(args["--mountpoint"], "DEFAULT")} nor {default_hive_full_path} seem to be correct.  System locale will not be correct.'
             )
     except ConstError:
         print("Invalid registry hives found.")
