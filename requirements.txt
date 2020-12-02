@@ -1,0 +1,12 @@
+attrs==20.3.0             # via regipy
+click==7.1.2              # via regipy
+construct==2.10.56        # via regipy
+docopt==0.6.2             # via -r requirements.in
+inflection==0.5.1         # via regipy
+jsonlines==1.2.0          # via regipy
+logbook==1.5.3            # via regipy
+pytz==2020.4              # via regipy
+regipy==1.7.1             # via -r requirements.in
+six==1.15.0               # via jsonlines
+tabulate==0.8.7           # via regipy
+tqdm==4.51.0              # via regipy
