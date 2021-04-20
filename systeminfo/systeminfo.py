@@ -326,18 +326,18 @@ def parse_timezone_information(
     timezone_key_name = (
         system_hive.get_key(f"{current_control_set}\\Control\\TimeZoneInformation")
         .get_value("TimeZoneKeyName")
-        .replace(b"\x00", b"")
+        .replace(str(b"\x00"), "")
     )
     timezone_key_name = timezone_key_name[
-        : timezone_key_name.find(b"Time") + len("Time")
-    ].decode("utf-8")
+        : timezone_key_name.find("Time") + len("Time")
+    ]
     timezone_information = {
         "timezone_desc": software_hive.get_key(
             f"Software\\Microsoft\\Windows NT\\CurrentVersion\\Time Zones\\{timezone_key_name}"
         ).get_value("Display")
     }
     timezone_information["timezone_offset"] = (
-        timezone_information["timezone_desc"].split("+")[1].split(")")[0]
+        timezone_information["timezone_desc"].replace("-", "+").split("+")[1].split(")")[0]
     )
 
     # Return results
