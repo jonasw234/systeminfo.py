@@ -337,7 +337,10 @@ def parse_timezone_information(
         ).get_value("Display")
     }
     timezone_information["timezone_offset"] = (
-        timezone_information["timezone_desc"].replace("-", "+").split("+")[1].split(")")[0]
+        timezone_information["timezone_desc"]
+        .replace("-", "+")
+        .split("+")[1]
+        .split(")")[0]
     )
 
     # Return results
