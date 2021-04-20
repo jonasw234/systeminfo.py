@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 import re
 import subprocess
 import unittest
@@ -9,9 +10,9 @@ class TestWindows10(unittest.TestCase):
     def setUpClass(cls):
         proc = subprocess.run(
             [
-                "/home/jonas/bin/systeminfo.py/systeminfo/systeminfo.py",
+                f"{os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'systeminfo', 'systeminfo.py')}",
                 "-p",
-                "/home/jonas/bin/systeminfo.py/tests",
+                f"{os.path.dirname(os.path.realpath(__file__))}",
             ],
             capture_output=True,
         )
